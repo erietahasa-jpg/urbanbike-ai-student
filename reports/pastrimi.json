@@ -1,0 +1,61 @@
+{
+  "para": {
+    "biciklete": {
+      "rreshta": 731,
+      "vlera_qe_mungojne": {},
+      "rreshta_dublikate": 0,
+      "data_dublikate": 0,
+      "tipet": {
+        "date": "datetime64[ns]",
+        "rentals": "int64",
+        "weekday": "int64",
+        "month": "int64",
+        "workingday": "int64",
+        "holiday": "int64"
+      },
+      "burimi": "day.csv"
+    },
+    "moti": {
+      "rreshta": 731,
+      "vlera_qe_mungojne": {},
+      "rreshta_dublikate": 0,
+      "data_dublikate": 0,
+      "tipet": {
+        "date": "datetime64[ns]",
+        "temp_c": "float64",
+        "rain_mm": "float64",
+        "wind_ms": "float64"
+      },
+      "burimi": "nasa_weather.csv"
+    }
+  },
+  "pas": {
+    "rreshta": 724,
+    "vlera_qe_mungojne": {},
+    "rreshta_dublikate": 0,
+    "data_dublikate": 0,
+    "tipet": {
+      "date": "datetime64[ns]",
+      "rentals": "int64",
+      "weekday": "int64",
+      "month": "int64",
+      "workingday": "int64",
+      "holiday": "int64",
+      "temp_c": "float64",
+      "rain_mm": "float64",
+      "wind_ms": "float64",
+      "rentals_lag1": "float64",
+      "rentals_lag7": "float64",
+      "rentals_mean7": "float64",
+      "temp_c_lag7": "float64",
+      "rain_mm_lag7": "float64",
+      "wind_ms_lag7": "float64",
+      "trend_days": "int64"
+    },
+    "burimi": "model_data.csv"
+  },
+  "periudha": [
+    "2011-01-08",
+    "2012-12-31"
+  ]
+}

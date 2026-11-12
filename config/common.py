@@ -29,7 +29,7 @@ def read_splits():
     path = DATA / "processed" / "model_data.csv"
     data = pd.read_csv(path, parse_dates=["date"])
     train = data.loc[data.date <= "2012-04-30"].copy()
-    valid = data.loc[data.date.between("2012-05-01", "2012-08-31")]
+    valid = data.loc[data.date.between("2012-05-01", "2012-08-31")].copy()
     test = data.loc[data.date > "2012-08-31"].copy()
     assert train.date.max() < valid.date.min()
     assert valid.date.max() < test.date.min()

@@ -1,0 +1,15 @@
+{
+  "mesatarja": 4534.9,
+  "muaji_me_i_larte": "Qer",
+  "muaji_me_i_ulet": "Jan",
+  "pragu_e_larte": 4719.5,
+  "korrelacioni": {
+    "wind_ms": -0.405,
+    "rain_mm": -0.272,
+    "temp_c": 0.606,
+    "trend_days": 0.619,
+    "rentals_lag7": 0.757,
+    "rentals_lag1": 0.845,
+    "rentals_mean7": 0.853
+  }
+}
