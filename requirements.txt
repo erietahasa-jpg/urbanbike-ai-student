@@ -4,3 +4,8 @@ scikit-learn==1.8.0
 matplotlib==3.10.8
 joblib==1.5.3
 scipy==1.17.0
+pandas
+scikit-learn
+matplotlib
+joblib
+streamlit
