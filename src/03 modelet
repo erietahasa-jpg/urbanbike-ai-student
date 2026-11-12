@@ -1,0 +1,114 @@
+"""Hapi 3: Modelet e regresionit (trajnim / validim / testim).
+
+Nisja nga dosja kryesore e projektit:
+    python src/03_modelet.py
+"""
+import sys
+from pathlib import Path
+
+import joblib
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.pipeline import Pipeline
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from config.common import (  # noqa: E402
+    FEATURES, FIGURES, REPORTS, SEED, TARGET, prepare, read_splits, save_json,
+)
+
+MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
+MODELS_DIR.mkdir(exist_ok=True)
+
+
+def metrics(y_true, y_pred):
+    return {
+        "MAE": round(float(mean_absolute_error(y_true, y_pred)), 1),
+        "RMSE": round(float(np.sqrt(mean_squared_error(y_true, y_pred))), 1),
+        "R2": round(float(r2_score(y_true, y_pred)), 3),
+    }
+
+
+def candidates():
+    return {
+        "Regresion linear (Ridge)": Pipeline([
+            ("prep", prepare(scale=True)), ("model", Ridge(alpha=1.0))]),
+        "Random Forest": Pipeline([
+            ("prep", prepare(scale=False)),
+            ("model", RandomForestRegressor(
+                n_estimators=300, min_samples_leaf=3, random_state=SEED, n_jobs=-1))]),
+        "Gradient Boosting": Pipeline([
+            ("prep", prepare(scale=False)),
+            ("model", GradientBoostingRegressor(
+                n_estimators=300, learning_rate=0.05, max_depth=3, random_state=SEED))]),
+    }
+
+
+def main():
+    train, valid, test = read_splits()
+    print(f"Trajnim: {len(train)} | Validim: {len(valid)} | Testim: {len(test)} ditë")
+
+    results = {}
+    # Modeli bazë: "sot si e njëjta ditë javën e kaluar"
+    results["Bazë (java e kaluar)"] = {
+        "validim": metrics(valid[TARGET], valid["rentals_lag7"])}
+
+    # 1. Trajno në train, krahaso në validim
+    for name, pipe in candidates().items():
+        pipe.fit(train[FEATURES], train[TARGET])
+        results[name] = {"validim": metrics(valid[TARGET], pipe.predict(valid[FEATURES]))}
+        print(f"{name:28s} validim MAE = {results[name]['validim']['MAE']}")
+
+    # 2. Zgjidh më të mirin sipas MAE në validim (jo në testim!)
+    best = min(candidates(), key=lambda n: results[n]["validim"]["MAE"])
+    print(f"\nModeli më i mirë në validim: {best}")
+
+    # 3. Ritrajno në train + validim, vlerëso NJË herë në testim
+    full = pd.concat([train, valid])
+    final = candidates()[best]
+    final.fit(full[FEATURES], full[TARGET])
+    pred = final.predict(test[FEATURES])
+    test_scores = metrics(test[TARGET], pred)
+    base_test = metrics(test[TARGET], test["rentals_lag7"])
+    print(f"Testim: {test_scores}  (modeli bazë: {base_test})")
+
+    joblib.dump(final, MODELS_DIR / "regresion.joblib")
+    save_json("modelet_regresion.json", {
+        "ndarja": {
+            "trajnim": [str(train.date.min().date()), str(train.date.max().date())],
+            "validim": [str(valid.date.min().date()), str(valid.date.max().date())],
+            "testim": [str(test.date.min().date()), str(test.date.max().date())],
+        },
+        "krahasimi_ne_validim": results,
+        "modeli_i_zgjedhur": best,
+        "testim": test_scores,
+        "testim_modeli_baze": base_test,
+    })
+
+    # Tabelë Markdown për RAPORTI.md
+    rows = ["| Modeli | MAE | RMSE | R² |", "|---|---|---|---|"]
+    for name, r in results.items():
+        v = r["validim"]
+        rows.append(f"| {name} | {v['MAE']} | {v['RMSE']} | {v['R2']} |")
+    (REPORTS / "tabela_regresion.md").write_text("\n".join(rows), encoding="utf-8")
+
+    # Grafik: parashikimi kundrejt realitetit në testim
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(test.date, test[TARGET], color="#2a6fdb", lw=1.5, label="Reale")
+    ax.plot(test.date, pred, color="#d1495b", lw=1.5, ls="--", label=f"Parashikimi ({best})")
+    ax.set(title=f"Testim: parashikimi kundrejt realitetit (MAE = {test_scores['MAE']})",
+           xlabel="Data", ylabel="Qira në ditë")
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    fig.savefig(FIGURES / "08_parashikimi_testim.png", dpi=150)
+    print("U ruajtën: models/regresion.joblib, reports/modelet_regresion.json, "
+          "reports/tabela_regresion.md, figures/08_parashikimi_testim.png")
+
+
+if __name__ == "__main__":
+    main()
