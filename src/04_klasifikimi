@@ -1,0 +1,112 @@
+"""Hapi 4: Klasifikimi i kërkesës në NORMALE ose E LARTË.
+
+Nisja nga dosja kryesore e projektit:
+    python src/04_klasifikimi.py
+"""
+import sys
+from pathlib import Path
+
+import joblib
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    ConfusionMatrixDisplay, accuracy_score, confusion_matrix, f1_score,
+    precision_score, recall_score,
+)
+from sklearn.pipeline import Pipeline
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from config.common import (  # noqa: E402
+    FEATURES, FIGURES, REPORTS, SEED, TARGET, prepare, read_splits, save_json,
+)
+
+MODELS_DIR = Path(__file__).resolve().parents[1] / "models"
+MODELS_DIR.mkdir(exist_ok=True)
+LABELS = ["Normale", "E lartë"]
+
+
+def scores(y_true, y_pred):
+    return {
+        "accuracy": round(float(accuracy_score(y_true, y_pred)), 3),
+        "precision": round(float(precision_score(y_true, y_pred, zero_division=0)), 3),
+        "recall": round(float(recall_score(y_true, y_pred, zero_division=0)), 3),
+        "F1": round(float(f1_score(y_true, y_pred, zero_division=0)), 3),
+    }
+
+
+def candidates():
+    return {
+        "Regresion logjistik": Pipeline([
+            ("prep", prepare(scale=True)),
+            ("model", LogisticRegression(max_iter=2000, class_weight="balanced"))]),
+        "Random Forest": Pipeline([
+            ("prep", prepare(scale=False)),
+            ("model", RandomForestClassifier(
+                n_estimators=300, min_samples_leaf=3, class_weight="balanced",
+                random_state=SEED, n_jobs=-1))]),
+    }
+
+
+def main():
+    train, valid, test = read_splits()
+
+    # Pragu llogaritet VETËM nga trajnimi (percentili 75)
+    limit = float(train[TARGET].quantile(0.75))
+    for part in (train, valid, test):
+        part["e_larte"] = (part[TARGET] > limit).astype(int)
+    print(f"Pragu 'e lartë': mbi {limit:.0f} qira në ditë")
+    print(f"Ditë 'e lartë' -> trajnim {train.e_larte.mean():.0%}, "
+          f"validim {valid.e_larte.mean():.0%}, testim {test.e_larte.mean():.0%}")
+
+    # Modeli bazë: "e lartë" nëse java e kaluar ishte e lartë
+    results = {"Bazë (java e kaluar)": {
+        "validim": scores(valid.e_larte, (valid.rentals_lag7 > limit).astype(int))}}
+
+    for name, pipe in candidates().items():
+        pipe.fit(train[FEATURES], train.e_larte)
+        results[name] = {"validim": scores(valid.e_larte, pipe.predict(valid[FEATURES]))}
+        print(f"{name:22s} validim F1 = {results[name]['validim']['F1']}")
+
+    best = max(candidates(), key=lambda n: results[n]["validim"]["F1"])
+    print(f"\nModeli më i mirë në validim: {best}")
+
+    full = pd.concat([train, valid])
+    final = candidates()[best]
+    final.fit(full[FEATURES], full.e_larte)
+    pred = final.predict(test[FEATURES])
+    test_scores = scores(test.e_larte, pred)
+    cm = confusion_matrix(test.e_larte, pred, labels=[0, 1])
+    print(f"Testim: {test_scores}")
+
+    joblib.dump({"model": final, "pragu": limit}, MODELS_DIR / "klasifikim.joblib")
+    save_json("modelet_klasifikim.json", {
+        "pragu_e_larte": round(limit, 1),
+        "krahasimi_ne_validim": results,
+        "modeli_i_zgjedhur": best,
+        "testim": test_scores,
+        "matrica_konfuzionit": {"rreshtat=reale, kolonat=parashikuar": cm.tolist()},
+    })
+
+    rows = ["| Modeli | Accuracy | Precision | Recall | F1 |", "|---|---|---|---|---|"]
+    for name, r in results.items():
+        v = r["validim"]
+        rows.append(f"| {name} | {v['accuracy']} | {v['precision']} | "
+                    f"{v['recall']} | {v['F1']} |")
+    (REPORTS / "tabela_klasifikim.md").write_text("\n".join(rows), encoding="utf-8")
+
+    fig, ax = plt.subplots(figsize=(5, 4.5))
+    ConfusionMatrixDisplay(cm, display_labels=LABELS).plot(ax=ax, cmap="Blues", colorbar=False)
+    ax.set(title=f"Matrica e konfuzionit (testim)\n{best}",
+           xlabel="Parashikuar", ylabel="Reale")
+    fig.tight_layout()
+    fig.savefig(FIGURES / "09_matrica_konfuzionit.png", dpi=150)
+    print("U ruajtën: models/klasifikim.joblib, reports/modelet_klasifikim.json, "
+          "reports/tabela_klasifikim.md, figures/09_matrica_konfuzionit.png")
+
+
+if __name__ == "__main__":
+    main()

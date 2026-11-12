@@ -1,0 +1,48 @@
+{
+  "pragu_e_larte": 4719.5,
+  "krahasimi_ne_validim": {
+    "Bazë (java e kaluar)": {
+      "validim": {
+        "accuracy": 0.894,
+        "precision": 0.948,
+        "recall": 0.94,
+        "F1": 0.944
+      }
+    },
+    "Regresion logjistik": {
+      "validim": {
+        "accuracy": 0.943,
+        "precision": 0.943,
+        "recall": 1.0,
+        "F1": 0.971
+      }
+    },
+    "Random Forest": {
+      "validim": {
+        "accuracy": 0.943,
+        "precision": 0.943,
+        "recall": 1.0,
+        "F1": 0.971
+      }
+    }
+  },
+  "modeli_i_zgjedhur": "Regresion logjistik",
+  "testim": {
+    "accuracy": 0.82,
+    "precision": 0.866,
+    "recall": 0.903,
+    "F1": 0.884
+  },
+  "matrica_konfuzionit": {
+    "rreshtat=reale, kolonat=parashikuar": [
+      [
+        16,
+        13
+      ],
+      [
+        9,
+        84
+      ]
+    ]
+  }
+}
